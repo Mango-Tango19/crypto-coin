@@ -48,7 +48,7 @@
           <div
             v-for="t in tickersArr"
             :key="t.name"
-            @click="sel = t"
+            @click="select(t)"
             :class="{
               'border-4': sel === t,
             }"
@@ -179,8 +179,9 @@
         </h3>
         <div class="flex items-end border-gray-600 border-b border-l h-64">
           <div
-            v-for="(bar, idx) in graph"
+            v-for="(bar, idx) in normalizeGraph()"
             :key="idx"
+            :style="{ height: `${bar}%` }"
             class="bg-purple-800 border w-10 h-64"
           ></div>
         </div>
@@ -227,32 +228,58 @@ export default {
       sel: "",
     };
   },
+  created() {
+    const tickersData = localStorage.getItem("cryptoTickers");
+    if (tickersData) {
+      this.tickersArr = JSON.parse(tickersData);
+      this.tickersArr.forEach((item) => {
+        this.getPrice(item.name);
+      });
+    }
+  },
   methods: {
     add() {
       const newCoin = {
         name: this.ticker,
         price: null,
       };
-      this.tickersArr.push(newCoin);
 
+      this.tickersArr.push(newCoin);
+      localStorage.setItem("cryptoTickers", JSON.stringify(this.tickersArr));
+
+      this.getPrice(newCoin.name);
+    },
+    getPrice(coinName) {
       setInterval(async () => {
         const f = await fetch(
-          `https://min-api.cryptocompare.com/data/price?fsym=${newCoin.name}&tsyms=USD&api_key='b1314c2b5351337fc341591684a0a9648216c3ce460e065b2f0eb808198f649f'`
+          `https://min-api.cryptocompare.com/data/price?fsym=${coinName}&tsyms=USD&api_key='b1314c2b5351337fc341591684a0a9648216c3ce460e065b2f0eb808198f649f'`
         );
         const data = await f.json();
 
-        this.tickersArr.find((ticker) => ticker.name === newCoin.name).price =
+        this.tickersArr.find((ticker) => ticker.name === coinName).price =
           data.USD;
-        if (this.sel.name === newCoin.name) {
-          this.graph.push(newCoin.price);
+
+        if (this.sel?.name === coinName) {
+          this.graph.push(data.USD);
         }
       }, 3000);
-
       this.ticker = "";
     },
 
     handleDelete(t) {
       this.tickersArr = this.tickersArr.filter((item) => item.name != t.name);
+    },
+
+    normalizeGraph() {
+      let maxGr = Math.max(...this.graph);
+      let minGr = Math.min(...this.graph);
+      return this.graph.map(
+        (price) => 5 + ((price - minGr) * 95) / (maxGr - minGr)
+      );
+    },
+    select(ticker) {
+      this.sel = ticker;
+      this.graph = [];
     },
   },
 };
